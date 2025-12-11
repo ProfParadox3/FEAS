@@ -456,101 +456,12 @@ const RefreshStatus = styled.div`
 
 const JobMonitorTable = () => {
   const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  
   const queryClient = useQueryClient();
   
   const { data: jobs, isLoading, error } = useQuery(
-    ['jobs', filter],
-    async () => {
-      // Mock data - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockJobs = [
-        {
-          id: 'JOB-8A3F2B1C',
-          source: 'url',
-          platform: 'twitter',
-          filename: 'twitter_video.mp4',
-          size: 15674321,
-          status: 'completed',
-          progress: 100,
-          hash: 'a1b2c3d4e5f6789012345678901234567890123456789012345678901234',
-          createdAt: new Date(Date.now() - 3600000),
-          updatedAt: new Date(Date.now() - 3500000),
-          investigatorId: 'INV-2023-001'
-        },
-        {
-          id: 'JOB-9B4C3D2E',
-          source: 'local_upload',
-          filename: 'evidence_image.jpg',
-          size: 4567890,
-          status: 'processing',
-          progress: 65,
-          hash: 'b2c3d4e5f67890a123456789012345678901234567890123456789012345',
-          createdAt: new Date(Date.now() - 1200000),
-          updatedAt: new Date(Date.now() - 60000),
-          investigatorId: 'INV-2023-002'
-        },
-        {
-          id: 'JOB-7C2D1E0F',
-          source: 'url',
-          platform: 'youtube',
-          filename: 'youtube_video.mp4',
-          size: 25432109,
-          status: 'failed',
-          progress: 30,
-          hash: null,
-          createdAt: new Date(Date.now() - 1800000),
-          updatedAt: new Date(Date.now() - 1750000),
-          investigatorId: 'INV-2023-003',
-          error: 'Download failed: Video unavailable'
-        },
-        {
-          id: 'JOB-6D1E0F2G',
-          source: 'local_upload',
-          filename: 'surveillance_footage.mov',
-          size: 98765432,
-          status: 'pending',
-          progress: 0,
-          hash: null,
-          createdAt: new Date(Date.now() - 300000),
-          updatedAt: new Date(Date.now() - 300000),
-          investigatorId: 'INV-2023-004'
-        },
-        {
-          id: 'JOB-5E0F2G3H',
-          source: 'url',
-          platform: 'twitter',
-          filename: 'tweet_screenshot.png',
-          size: 1234567,
-          status: 'completed',
-          progress: 100,
-          hash: 'c3d4e5f67890a1b234567890123456789012345678901234567890123456',
-          createdAt: new Date(Date.now() - 7200000),
-          updatedAt: new Date(Date.now() - 7100000),
-          investigatorId: 'INV-2023-001'
-        }
-      ];
-      
-      let filtered = mockJobs;
-      
-      if (filter !== 'all') {
-        filtered = filtered.filter(job => job.status === filter);
-      }
-      
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filtered = filtered.filter(job => 
-          job.id.toLowerCase().includes(searchLower) ||
-          job.filename.toLowerCase().includes(searchLower) ||
-          job.investigatorId.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      return filtered.sort((a, b) => b.createdAt - a.createdAt);
-    },
+    ['jobs'],
+    () => forensicAPI.getAllJobs(), // Real API call
     {
       refetchInterval: autoRefresh ? 5000 : false,
     }
@@ -559,285 +470,89 @@ const JobMonitorTable = () => {
   const handleRefresh = () => {
     queryClient.invalidateQueries('jobs');
   };
-  
+
+  // Helper functions for display
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'pending':
-        return <FaPauseCircle />;
-      case 'processing':
-        return <FaSpinner />;
-      case 'completed':
-        return <FaCheckCircle />;
-      case 'failed':
-        return <FaTimesCircle />;
-      default:
-        return <FaExclamationTriangle />;
+      case 'pending': return <FaPauseCircle />;
+      case 'processing': return <FaSpinner className="spin" />; // Ensure CSS class exists or use styled prop
+      case 'completed': return <FaCheckCircle />;
+      case 'failed': return <FaTimesCircle />;
+      default: return <FaExclamationTriangle />;
     }
   };
-  
-  const getSourceIcon = (source) => {
-    return source === 'url' ? <FaGlobe /> : <FaUpload />;
-  };
-  
-  const formatHash = (hash) => {
-    if (!hash) return 'N/A';
-    return `${hash.substring(0, 16)}...${hash.substring(hash.length - 8)}`;
-  };
-  
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-  
-  const stats = {
-    total: jobs?.length || 0,
-    completed: jobs?.filter(j => j.status === 'completed').length || 0,
-    processing: jobs?.filter(j => j.status === 'processing').length || 0,
-    pending: jobs?.filter(j => j.status === 'pending').length || 0,
-    failed: jobs?.filter(j => j.status === 'failed').length || 0
-  };
-  
-  if (isLoading) {
-    return (
-      <Container>
-        <MonitorHeader>
-          <Title>
-            <FaSpinner />
-            Evidence Processing Monitor
-          </Title>
-        </MonitorHeader>
-        <LoadingContainer>
-          <LoadingIcon>
-            <FaSpinner />
-          </LoadingIcon>
-          <LoadingText>
-            Loading forensic jobs...
-          </LoadingText>
-        </LoadingContainer>
-      </Container>
-    );
-  }
-  
-  if (error) {
-    return (
-      <Container>
-        <MonitorHeader>
-          <Title>
-            <FaExclamationTriangle />
-            Evidence Processing Monitor
-          </Title>
-        </MonitorHeader>
-        <LoadingContainer>
-          <LoadingIcon>
-            <FaExclamationTriangle />
-          </LoadingIcon>
-          <LoadingText>
-            Error loading jobs: {error.message}
-          </LoadingText>
-        </LoadingContainer>
-      </Container>
-    );
-  }
-  
+
+  const filteredJobs = jobs?.filter(job => filter === 'all' || job.status === filter) || [];
+
+  if (isLoading) return <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}><FaSpinner className="spin" size={30} /> Loading jobs...</div>;
+  if (error) return <div style={{ padding: '2rem', textAlign: 'center', color: '#ff4444' }}>Error loading jobs: {error.message}</div>;
+
   return (
     <Container>
       <MonitorHeader>
-        <Title>
-          <FaFingerprint />
-          Evidence Processing <span>Monitor</span>
-        </Title>
-        
-        <MonitorStats>
-          <Stat>
-            <StatNumber>{stats.total}</StatNumber>
-            <StatLabel>Total</StatLabel>
-          </Stat>
-          <Stat>
-            <StatNumber color="#10b981">{stats.completed}</StatNumber>
-            <StatLabel>Completed</StatLabel>
-          </Stat>
-          <Stat>
-            <StatNumber color="#3b82f6">{stats.processing}</StatNumber>
-            <StatLabel>Processing</StatLabel>
-          </Stat>
-          <Stat>
-            <StatNumber color="#f59e0b">{stats.pending}</StatNumber>
-            <StatLabel>Pending</StatLabel>
-          </Stat>
-          <Stat>
-            <StatNumber color="#ef4444">{stats.failed}</StatNumber>
-            <StatLabel>Failed</StatLabel>
-          </Stat>
-        </MonitorStats>
+        <Title>Evidence Processing <span>Monitor</span></Title>
       </MonitorHeader>
       
       <Controls>
-        <FilterSelect 
+        <select 
           value={filter} 
           onChange={(e) => setFilter(e.target.value)}
+          style={{ background: '#111827', border: '1px solid #374151', color: '#fff', padding: '0.5rem', borderRadius: '4px' }}
         >
           <option value="all">All Status</option>
-          <option value="pending">Pending</option>
           <option value="processing">Processing</option>
           <option value="completed">Completed</option>
           <option value="failed">Failed</option>
-        </FilterSelect>
-        
-        <SearchInput
-          type="text"
-          placeholder="Search jobs by ID, filename, or investigator..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        
-        <ControlButton onClick={handleRefresh}>
-          <FaSync />
-          Refresh
-        </ControlButton>
-        
-        <ControlButton 
-          active={autoRefresh}
-          onClick={() => setAutoRefresh(!autoRefresh)}
-        >
-          {autoRefresh ? <FaPauseCircle /> : <FaPlayCircle />}
-          Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
+        </select>
+        <ControlButton onClick={handleRefresh}><FaSync /> Refresh</ControlButton>
+        <ControlButton onClick={() => setAutoRefresh(!autoRefresh)}>
+          {autoRefresh ? <FaPauseCircle /> : <FaPlayCircle />} {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
         </ControlButton>
       </Controls>
-      
+
       <TableContainer>
         <Table>
           <TableHead>
             <tr>
               <TableHeader>Job ID</TableHeader>
               <TableHeader>Source</TableHeader>
-              <TableHeader>File</TableHeader>
               <TableHeader>Status</TableHeader>
-              <TableHeader>SHA-256</TableHeader>
+              <TableHeader>Progress</TableHeader>
               <TableHeader>Created</TableHeader>
               <TableHeader>Actions</TableHeader>
             </tr>
           </TableHead>
           <tbody>
-            {jobs?.map((job) => (
-              <TableRow key={job.id} status={job.status}>
+            {filteredJobs.map((job) => (
+              <TableRow key={job.job_id}>
+                <TableCell style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{job.job_id.substring(0, 8)}...</TableCell>
                 <TableCell>
-                  <JobId>{job.id}</JobId>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {job.source === 'url' ? <FaGlobe /> : <FaUpload />}
+                    {job.source === 'url' ? 'URL' : 'Upload'}
+                  </div>
                 </TableCell>
-                
                 <TableCell>
-                  <SourceCell>
-                    <SourceIcon source={job.source}>
-                      {getSourceIcon(job.source)}
-                    </SourceIcon>
-                    <SourceText>
-                      <SourceType>
-                        {job.source === 'url' ? 'Web Crawl' : 'Local Upload'}
-                      </SourceType>
-                      {job.platform && (
-                        <Platform>{job.platform}</Platform>
-                      )}
-                    </SourceText>
-                  </SourceCell>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <StatusIcon status={job.status}>{getStatusIcon(job.status)}</StatusIcon>
+                    <span style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold' }}>{job.status}</span>
+                  </div>
                 </TableCell>
-                
+                <TableCell>{Math.round(job.progress)}%</TableCell>
+                <TableCell>{formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}</TableCell>
                 <TableCell>
-                  <FileInfo>
-                    <FileName>{job.filename}</FileName>
-                    <FileSize>{formatFileSize(job.size)}</FileSize>
-                  </FileInfo>
-                </TableCell>
-                
-                <TableCell>
-                  <StatusCell>
-                    <StatusIcon status={job.status} spinning={job.status === 'processing'}>
-                      {getStatusIcon(job.status)}
-                    </StatusIcon>
-                    <StatusText status={job.status}>
-                      {job.status}
-                    </StatusText>
-                  </StatusCell>
-                  {job.status === 'processing' && (
-                    <ProgressBar>
-                      <ProgressFill progress={job.progress} />
-                    </ProgressBar>
-                  )}
-                </TableCell>
-                
-                <TableCell>
-                  <HashCell>
-                    <FaFingerprint />
-                    {formatHash(job.hash)}
-                  </HashCell>
-                </TableCell>
-                
-                <TableCell>
-                  {formatDistanceToNow(job.createdAt, { addSuffix: true })}
-                </TableCell>
-                
-                <TableCell>
-                  <ActionsCell>
-                    <ActionButton 
-                      variant="view"
-                      as={Link}
-                      to={`/evidence/${job.id}`}
-                      title="View Details"
-                    >
-                      <FaEye />
-                    </ActionButton>
-                    
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <ActionButton as={Link} to={`/evidence/${job.job_id}`} title="View Details"><FaEye /></ActionButton>
                     {job.status === 'completed' && (
-                      <ActionButton 
-                        variant="pdf"
-                        title="Download PDF Report"
-                        onClick={() => {
-                          // PDF download logic
-                          window.open(`/api/v1/jobs/${job.id}/pdf`, '_blank');
-                        }}
-                      >
-                        <FaFilePdf />
-                      </ActionButton>
+                      <ActionButton onClick={() => window.open(`${process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'}/jobs/${job.job_id}/pdf`, '_blank')} title="PDF Report"><FaFilePdf /></ActionButton>
                     )}
-                  </ActionsCell>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </tbody>
         </Table>
-        
-        {jobs?.length === 0 && (
-          <EmptyState>
-            <EmptyIcon>
-              <FaUpload />
-            </EmptyIcon>
-            <EmptyText>No evidence jobs found</EmptyText>
-            <EmptyText>
-              {search || filter !== 'all' 
-                ? 'Try changing your search or filter criteria' 
-                : 'Submit your first evidence acquisition to get started'}
-            </EmptyText>
-          </EmptyState>
-        )}
       </TableContainer>
-      
-      <MonitorFooter>
-        <div>
-          Showing {jobs?.length || 0} jobs • Last updated: {new Date().toLocaleTimeString()}
-        </div>
-        
-        <RefreshStatus>
-          {autoRefresh ? (
-            <>
-              <FaSync style={{ animation: 'spin 2s linear infinite' }} />
-              Auto-refreshing every 5 seconds
-            </>
-          ) : (
-            'Auto-refresh disabled'
-          )}
-        </RefreshStatus>
-      </MonitorFooter>
     </Container>
   );
 };
