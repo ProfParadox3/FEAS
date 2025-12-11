@@ -1,21 +1,34 @@
 from typing import List, Optional
 from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl
+from pydantic import validator
 
 class Settings(BaseSettings):
     DEBUG: bool = False
-
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Forensic Evidence Acquisition System"
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
 
-    DATABASE_URL: str = "postgresql://user:password@localhost/forensic_db"
+    # --- Database Settings ---
+    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "password"
+    POSTGRES_DB: str = "forensic_db"
+    POSTGRES_PORT: str = "5432"
+    DATABASE_URL: Optional[str] = None
 
+    @validator("DATABASE_URL", pre=True, always=True)
+    def assemble_db_connection(cls, v: Optional[str], values: dict) -> str:
+        if isinstance(v, str):
+            return v
+        return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
+
+    # --- Storage Settings ---
     STORAGE_TYPE: str = "local"
     LOCAL_STORAGE_PATH: str = "./evidence_storage"
     MAX_FILE_SIZE: int = 500 * 1024 * 1024
 
+    # --- S3 Settings (Optional) ---
     S3_ENDPOINT: Optional[str] = None
     S3_ACCESS_KEY: Optional[str] = None
     S3_SECRET_KEY: Optional[str] = None
@@ -23,9 +36,31 @@ class Settings(BaseSettings):
     S3_REGION: str = "us-east-1"
     S3_SECURE: bool = True
 
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    # --- Redis / Celery Settings ---
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: str = "6379"
+    CELERY_BROKER_URL: Optional[str] = None
+    CELERY_RESULT_BACKEND: Optional[str] = None
 
+    @validator("CELERY_BROKER_URL", pre=True, always=True)
+    def assemble_celery_broker(cls, v: Optional[str], values: dict) -> str:
+        if isinstance(v, str): return v
+        return f"redis://{values.get('REDIS_HOST')}:{values.get('REDIS_PORT')}/0"
+
+    @validator("CELERY_RESULT_BACKEND", pre=True, always=True)
+    def assemble_celery_backend(cls, v: Optional[str], values: dict) -> str:
+        if isinstance(v, str): return v
+        return f"redis://{values.get('REDIS_HOST')}:{values.get('REDIS_PORT')}/0"
+
+    # --- Social Media Keys ---
+    TWITTER_CONSUMER_KEY: Optional[str] = None
+    TWITTER_CONSUMER_SECRET: Optional[str] = None
+    FACEBOOK_APP_ID: Optional[str] = None
+    FACEBOOK_APP_SECRET: Optional[str] = None
+    INSTAGRAM_APP_ID: Optional[str] = None
+    INSTAGRAM_APP_SECRET: Optional[str] = None
+
+    # --- App Configuration ---
     ALLOWED_URL_DOMAINS: List[str] = [
         "twitter.com",
         "x.com",
@@ -45,15 +80,15 @@ class Settings(BaseSettings):
         "audio/wav"
     ]
 
+    # --- Critical Missing Fields Restored ---
     RATE_LIMIT_PER_MINUTE: int = 60
-
     LOG_LEVEL: str = "INFO"
     CHAIN_OF_CUSTODY_LOG_PATH: str = "./chain_of_custody.log"
 
     model_config = {
         "env_file": ".env",
         "case_sensitive": True,
-        "extra": "forbid"   # Default behavior
+        "extra": "ignore"  # This prevents crashes if .env has extra keys
     }
 
 settings = Settings()

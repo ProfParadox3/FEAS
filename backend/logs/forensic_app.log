@@ -7,3 +7,26 @@
 2025-12-11 21:12:32,555 - app.main - INFO - main.py:76 - Forensic Evidence Acquisition System starting up
 2025-12-11 21:12:34,295 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
 2025-12-11 21:12:34,296 - app.main - INFO - main.py:94 - Storage service initialized
+2025-12-11 23:45:56,301 - app.main - INFO - main.py:76 - Forensic Evidence Acquisition System starting up
+2025-12-11 23:51:58,660 - app.main - INFO - main.py:76 - Forensic Evidence Acquisition System starting up
+2025-12-11 23:51:59,942 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-11 23:51:59,943 - app.main - INFO - main.py:94 - Storage service initialized
+2025-12-12 00:36:47,751 - app.main - INFO - main.py:50 - Starting up Forensic Evidence Acquisition System...
+2025-12-12 00:36:47,791 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-12 00:36:47,792 - app.main - INFO - main.py:52 - Storage service initialized.
+2025-12-12 00:37:56,002 - app.main - INFO - main.py:50 - Starting up Forensic Evidence Acquisition System...
+2025-12-12 00:37:56,005 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-12 00:37:56,006 - app.main - INFO - main.py:52 - Storage service initialized.
+2025-12-12 00:40:23,949 - app.main - INFO - main.py:50 - Starting up Forensic Evidence Acquisition System...
+2025-12-12 00:40:23,952 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-12 00:40:23,953 - app.main - INFO - main.py:52 - Storage service initialized.
+2025-12-12 00:41:50,362 - app.main - INFO - main.py:50 - Starting up Forensic Evidence Acquisition System...
+2025-12-12 00:41:50,365 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-12 00:41:50,366 - app.main - INFO - main.py:52 - Storage service initialized.
+2025-12-12 00:44:55,435 - app.services.pdf_generator - ERROR - pdf_generator.py:170 - PDF generation failed: 'str' object has no attribute 'value'
+2025-12-12 00:44:55,438 - app.pipelines.upload_pipeline - ERROR - upload_pipeline.py:53 - File path processing failed: 'ForensicLogger' object has no attribute 'error'
+2025-12-12 00:48:30,043 - app.main - INFO - main.py:50 - Starting up Forensic Evidence Acquisition System...
+2025-12-12 00:48:30,046 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-12 00:48:30,047 - app.main - INFO - main.py:52 - Storage service initialized.
+2025-12-12 00:48:50,672 - exifread - WARNING - __init__.py:139 - PNG file does not have exif data.
+2025-12-12 00:48:51,084 - app.services.pdf_generator - INFO - pdf_generator.py:170 - PDF report generated: /tmp/tmpoe8fkueg.pdf

@@ -1,40 +1,41 @@
 import asyncio
 import os
-import magic # Requires `pip install python-magic`
+import magic 
+import logging  # --- Added Standard Logging ---
 from datetime import datetime
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
-# Import database models and session manager
 from app.db.session import SessionLocal
 from app.models.sql_models import ChainOfCustody, Job
-# Import Pydantic schemas for data validation and PDF generation
-from app.models.schemas import JobDetailsResponse, EvidenceSource, JobStatus
-# Import all required services
+from app.models.schemas import JobDetailsResponse, JobStatus
 from app.services.hashing import HashService
 from app.services.metadata import MetadataExtractor
 from app.services.storage import StorageService
 from app.services.pdf_generator import PDFReportGenerator
 from app.core.logger import ForensicLogger
 
-logger = ForensicLogger()
+# Setup standard logger for errors
+std_logger = logging.getLogger(__name__)
 
 class UnifiedForensicPipeline:
     
     def __init__(self):
-        """Initializes all necessary services for the pipeline stages."""
         self.hash_service = HashService()
         self.metadata_extractor = MetadataExtractor()
         self.storage_service = StorageService()
         self.pdf_generator = PDFReportGenerator()
 
-    async def process(self, file_path: str, job_id: str, investigator_id: str, source: str, filename: str = None):
+    async def process(self, 
+                     file_path: str, 
+                     job_id: str, 
+                     investigator_id: str, 
+                     source: str, 
+                     filename: str = None,
+                     original_url: str = None,
+                     platform_info: Dict[str, Any] = None):
         """
-        Main processing pipeline:
-        1. Hashes the file (integrity).
-        2. Extracts metadata.
-        3. Stores the evidence in defined storage.
-        4. Generates a comprehensive PDF report.
-        5. Logs all steps in the Chain of Custody (database).
+        Main processing pipeline.
         """
         db: Session = SessionLocal()
         job = db.query(Job).filter(Job.id == job_id).first()
@@ -44,12 +45,18 @@ class UnifiedForensicPipeline:
             raise ValueError(f"Job ID {job_id} not found in database.")
 
         try:
+            # Update initial info
+            if original_url:
+                job.original_url = original_url
+            if filename:
+                job.filename = filename
+            
             # --- 1. Hashing ---
             job.stage = "Hashing"
             job.progress = 10.0
+            job.status = "processing"
             db.commit()
 
-            # FIX: Use 'compute_file_hash' (matches your service)
             sha256_hash = self.hash_service.compute_file_hash(file_path)
 
             log = ChainOfCustody(
@@ -67,10 +74,12 @@ class UnifiedForensicPipeline:
             job.progress = 30.0
             db.commit()
 
-            # FIX: Use 'extract_all_metadata' (matches your service)
             metadata = self.metadata_extractor.extract_all_metadata(file_path)
             
-            # Determine MIME type using python-magic
+            # Merge platform info if available
+            if platform_info:
+                metadata['platform'] = platform_info
+
             try:
                 mime_type = magic.from_file(file_path, mime=True)
             except Exception:
@@ -82,9 +91,17 @@ class UnifiedForensicPipeline:
                 job_id=job_id,
                 event="METADATA_EXTRACTED",
                 investigator_id=investigator_id,
-                details={"mime_type": mime_type, "file_size": file_size}
+                details={
+                    "mime_type": mime_type, 
+                    "file_size": file_size,
+                    "platform_detected": platform_info.get('platform') if platform_info else "unknown"
+                }
             )
             db.add(log)
+            
+            # Update job metadata
+            job.file_size = file_size
+            job.mime_type = mime_type
             db.commit()
             
             # --- 3. Storage ---
@@ -94,24 +111,20 @@ class UnifiedForensicPipeline:
             
             final_filename = filename or os.path.basename(file_path)
             
-            # Prepare metadata dict for storage service
             storage_metadata = {
                 'basic': {'file_name': final_filename, 'file_size': file_size, 'mime_type': mime_type},
-                'processing_info': {'sha256_hash': sha256_hash, 'investigator_id': investigator_id}
+                'processing_info': {'sha256_hash': sha256_hash, 'investigator_id': investigator_id},
+                'platform': platform_info
             }
 
-            # FIX: Use 'store_evidence' (matches your service)
             storage_result = await self.storage_service.store_evidence(
                 file_path=file_path, 
                 job_id=job_id, 
                 metadata=storage_metadata
             )
 
-            # Update Job record with final details
             job.storage_path = storage_result.get('path')
             job.sha256_hash = sha256_hash
-            job.file_size = file_size
-            job.mime_type = mime_type
             
             log = ChainOfCustody(
                 job_id=job_id,
@@ -127,15 +140,13 @@ class UnifiedForensicPipeline:
             job.progress = 90.0
             db.commit()
             
-            # Fetch all logs for the Chain of Custody section in the report
             current_logs = db.query(ChainOfCustody).filter(ChainOfCustody.job_id == job_id).order_by(ChainOfCustody.timestamp).all()
             
-            # Construct the Pydantic model (JobDetailsResponse) for the PDF Generator
             job_details_obj = JobDetailsResponse(
                 job_id=job.id,
                 status=JobStatus.COMPLETED,
                 source=job.source,
-                platform=None, # Placeholder - can be updated with platform info if available
+                platform=None, 
                 metadata={
                     "file_name": job.filename or final_filename,
                     "file_size": job.file_size,
@@ -143,7 +154,8 @@ class UnifiedForensicPipeline:
                     "sha256_hash": job.sha256_hash,
                     "extraction_timestamp": datetime.utcnow(),
                     "exif_data": metadata.get("exif"),
-                    "media_metadata": metadata.get("media")
+                    "media_metadata": metadata.get("media"),
+                    "platform_metadata": metadata.get("platform")
                 },
                 chain_of_custody=[
                     {
@@ -157,10 +169,10 @@ class UnifiedForensicPipeline:
                 created_at=job.created_at,
                 completed_at=datetime.utcnow(),
                 file_path=job.storage_path,
-                storage_location=storage_result.get('location')
+                storage_location=storage_result.get('location'),
+                original_url=job.original_url
             )
 
-            # Generate PDF
             pdf_path = self.pdf_generator.generate_report(job_details_obj)
             
             log = ChainOfCustody(
@@ -171,7 +183,6 @@ class UnifiedForensicPipeline:
             )
             db.add(log)
             
-            # Finalize Job
             job.status = 'completed'
             job.progress = 100.0
             job.completed_at = datetime.utcnow()
@@ -185,11 +196,28 @@ class UnifiedForensicPipeline:
             }
 
         except Exception as e:
-            # Handle failure: set job status to failed and log the error
-            logger.error(f"Pipeline failed for job {job_id}: {str(e)}")
+            # FIX: Use standard logger for errors
+            std_logger.error(f"Pipeline failed for job {job_id}: {str(e)}")
             job.status = 'failed'
             job.notes = str(e)
             db.commit()
-            raise # Re-raise the exception to be handled by the worker/caller
+            raise 
         finally:
             db.close()
+
+    def verify_integrity(self, file_path: str, original_hash: str, job_id: str, investigator_id: str):
+        """Verifies if the current file hash matches the original chain of custody hash."""
+        current_hash = self.hash_service.compute_file_hash(file_path)
+        matches = (current_hash == original_hash)
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "original_hash": original_hash,
+            "current_hash": current_hash,
+            "matches": matches,
+            "verification_details": {
+                "verified_by": investigator_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }

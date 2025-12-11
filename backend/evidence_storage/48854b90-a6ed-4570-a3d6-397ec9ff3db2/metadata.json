@@ -1,0 +1,12 @@
+{
+  "basic": {
+    "file_name": "name.jpg",
+    "file_size": 10965,
+    "mime_type": "image/jpeg"
+  },
+  "processing_info": {
+    "sha256_hash": "482f6be99f038092a30c6f15fafa97c11e55bf08928cc26b1bbacae180d632af",
+    "investigator_id": "009"
+  },
+  "platform": null
+}

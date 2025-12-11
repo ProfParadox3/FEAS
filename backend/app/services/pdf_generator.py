@@ -71,12 +71,16 @@ class PDFReportGenerator:
             story.append(Paragraph("FORENSIC EVIDENCE REPORT", title_style))
             story.append(Spacer(1, 20))
             
+            # Helper to safely get string values
+            source_str = job_details.source.upper() if job_details.source else "UNKNOWN"
+            platform_str = job_details.platform.upper() if job_details.platform else "LOCAL"
+
             # Case Information
             case_data = [
                 ["Job ID:", job_details.job_id],
                 ["Investigator ID:", job_details.chain_of_custody[0].investigator_id],
-                ["Source Type:", job_details.source.value.upper()],
-                ["Platform:", job_details.platform.value.upper() if job_details.platform else "LOCAL"],
+                ["Source Type:", source_str],
+                ["Platform:", platform_str],
                 ["Acquisition Date:", job_details.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')],
                 ["Completion Date:", 
                  job_details.completed_at.strftime('%Y-%m-%d %H:%M:%S UTC') 
@@ -96,10 +100,10 @@ class PDFReportGenerator:
             
             # Hash Information
             hash_data = [
-                ["SHA-256 Hash:", job_details.metadata.sha256_hash],
-                ["File Name:", job_details.metadata.file_name],
-                ["File Size:", f"{job_details.metadata.file_size:,} bytes"],
-                ["MIME Type:", job_details.metadata.mime_type],
+                ["SHA-256 Hash:", job_details.metadata.sha256_hash or "N/A"],
+                ["File Name:", job_details.metadata.file_name or "N/A"],
+                ["File Size:", f"{job_details.metadata.file_size or 0:,} bytes"],
+                ["MIME Type:", job_details.metadata.mime_type or "N/A"],
             ]
             
             hash_table = Table(hash_data, colWidths=[2*inch, 4*inch])

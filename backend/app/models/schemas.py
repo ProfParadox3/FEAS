@@ -1,8 +1,7 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, HttpUrl, Field, validator
-import uuid
+from pydantic import BaseModel, HttpUrl, Field, validator, ConfigDict
 
 class JobStatus(str, Enum):
     PENDING = "pending"
@@ -33,7 +32,6 @@ class URLJobCreate(BaseModel):
     def validate_url_domain(cls, v):
         allowed_domains = ['twitter.com', 'x.com', 'youtube.com', 'youtu.be']
         domain = str(v).split('/')[2]
-        
         if not any(allowed in domain for allowed in allowed_domains):
             raise ValueError(f'URL domain not allowed. Allowed: {allowed_domains}')
         return v
@@ -44,22 +42,26 @@ class FileUploadRequest(BaseModel):
     notes: Optional[str] = Field(None, max_length=1000)
 
 class JobStatusResponse(BaseModel):
-    job_id: str
-    status: JobStatus
+    # FIX: Use validation_alias to map 'id' (from DB) to 'job_id' (for API)
+    job_id: str = Field(..., validation_alias="id")
+    status: str
+    source: str
     progress: float = Field(0.0, ge=0.0, le=100.0)
     stage: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
+    model_config = ConfigDict(from_attributes=True)
+
 class Metadata(BaseModel):
-    file_name: str
-    file_size: int
-    mime_type: str
-    sha256_hash: str
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    mime_type: Optional[str] = None
+    sha256_hash: Optional[str] = None
     exif_data: Optional[Dict[str, Any]] = None
     platform_metadata: Optional[Dict[str, Any]] = None
     media_metadata: Optional[Dict[str, Any]] = None
-    extraction_timestamp: datetime
+    extraction_timestamp: Optional[datetime] = None
 
 class ChainOfCustodyEntry(BaseModel):
     timestamp: datetime
@@ -70,16 +72,19 @@ class ChainOfCustodyEntry(BaseModel):
 
 class JobDetailsResponse(BaseModel):
     job_id: str
-    status: JobStatus
-    source: EvidenceSource
-    platform: Optional[Platform]
+    status: str
+    source: str
+    platform: Optional[str] = None
     metadata: Metadata
     chain_of_custody: List[ChainOfCustodyEntry]
-    original_url: Optional[HttpUrl] = None
+    original_url: Optional[str] = None
     file_path: str
     storage_location: str
     created_at: datetime
     completed_at: Optional[datetime] = None
+    
+    # Allow mapping if we ever use from_attributes here too
+    model_config = ConfigDict(from_attributes=True)
 
 class VerificationResponse(BaseModel):
     job_id: str

@@ -15,6 +15,7 @@ def setup_logging():
     
     # Configure root logger
     root_logger = logging.getLogger()
+    #log_level_str = getattr(settings, "LOG_LEVEL", "INFO")
     root_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
     
     # Console handler
