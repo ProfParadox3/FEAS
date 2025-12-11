@@ -5,9 +5,10 @@ import uuid
 import json
 from datetime import datetime
 import logging
+from sqlalchemy.orm import Session
 import tempfile
 import shutil
-
+from app.db.session import get_db
 from app.models.schemas import (
     URLJobCreate, FileUploadRequest, JobStatusResponse, 
     JobDetailsResponse, VerificationResponse, ErrorResponse
