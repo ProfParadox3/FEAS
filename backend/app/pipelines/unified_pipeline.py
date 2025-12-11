@@ -49,7 +49,7 @@ class UnifiedForensicPipeline:
             job.progress = 10.0
             db.commit()
 
-            # Correct method name: compute_file_hash
+            # FIX: Use 'compute_file_hash' (matches your service)
             sha256_hash = self.hash_service.compute_file_hash(file_path)
 
             log = ChainOfCustody(
@@ -67,7 +67,7 @@ class UnifiedForensicPipeline:
             job.progress = 30.0
             db.commit()
 
-            # Correct method name: extract_all_metadata
+            # FIX: Use 'extract_all_metadata' (matches your service)
             metadata = self.metadata_extractor.extract_all_metadata(file_path)
             
             # Determine MIME type using python-magic
@@ -100,7 +100,7 @@ class UnifiedForensicPipeline:
                 'processing_info': {'sha256_hash': sha256_hash, 'investigator_id': investigator_id}
             }
 
-            # Correct method name: store_evidence
+            # FIX: Use 'store_evidence' (matches your service)
             storage_result = await self.storage_service.store_evidence(
                 file_path=file_path, 
                 job_id=job_id, 
