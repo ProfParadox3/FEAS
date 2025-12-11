@@ -1,3 +1,6 @@
 2025-12-11 01:53:25,632 - app.main - INFO - main.py:51 - Forensic Evidence Acquisition System starting up
 2025-12-11 01:53:25,640 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
 2025-12-11 01:53:25,642 - app.main - INFO - main.py:60 - Storage service initialized
+2025-12-11 09:53:11,542 - app.main - INFO - main.py:51 - Forensic Evidence Acquisition System starting up
+2025-12-11 09:53:11,555 - app.services.storage - INFO - storage.py:23 - Local storage initialized at ./evidence_storage
+2025-12-11 09:53:11,557 - app.main - INFO - main.py:60 - Storage service initialized

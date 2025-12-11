@@ -6,10 +6,19 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import logging
 import os
-
+from app.db.session import engine
+from app.db.base import Base
 from app.api.v1.endpoints import jobs, health
 from app.core.config import settings
 from app.core.logger import setup_logging
+
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Forensic Evidence Acquisition System starting up")
+    
+    # Create Tables automatically (Production usually uses Alembic migrations, but this works for now)
+    Base.metadata.create_all(bind=engine)
 
 setup_logging()
 logger = logging.getLogger(__name__)

@@ -85,6 +85,43 @@ const generateRequestId = () => {
   return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
+
+const downloadReport = async (jobId) => {
+    try {
+        const response = await api.get(`/jobs/${jobId}/report`, {
+            responseType: 'blob', // Important: tells axios to treat the response as a binary file
+        });
+
+        // The backend should return the filename in the Content-Disposition header
+        // If not, we use a default name
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = `Forensic_Report_${jobId}.pdf`;
+
+        if (contentDisposition) {
+            const matches = /filename="?([^"]+)"?/.exec(contentDisposition);
+            if (matches && matches[1]) {
+                filename = matches[1];
+            }
+        }
+
+        // Create a URL for the blob and trigger download
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error downloading report:', error);
+        throw error;
+    }
+};
+
+
 // Forensic API endpoints
 export const forensicAPI = {
   // Job submission
@@ -149,6 +186,8 @@ export const forensicAPI = {
     const response = await api.post('/jobs/batch/verify', { jobIds });
     return response;
   },
+  
+  downloadReport,
   
   // Analytics
   getAnalytics: async (period = '7d') => {

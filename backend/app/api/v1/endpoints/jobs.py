@@ -25,6 +25,40 @@ router = APIRouter()
 # In-memory job store (replace with database in production)
 job_store = {}
 
+@router.get("/jobs/{job_id}/report")
+async def download_report(job_id: str, db: Session = Depends(get_db)):
+    """Download the forensic report PDF"""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # We assume the PDF is stored in the same directory as the evidence file 
+    # and named based on the job ID, which is common practice.
+    pdf_dir = os.path.dirname(job.storage_path) if job.storage_path else None
+    pdf_path = os.path.join(pdf_dir, f"report_{job_id}.pdf") if pdf_dir else None
+    
+    if not pdf_path or not os.path.exists(pdf_path) or job.status != 'completed':
+        raise HTTPException(
+            status_code=404, 
+            detail="Report not found or job is not yet completed."
+        )
+
+    # Add a Chain of Custody Log for report download
+    log = ChainOfCustody(
+        job_id=job.id,
+        event="REPORT_DOWNLOADED",
+        investigator_id="API_User", # This should be replaced with actual user from auth
+        details={"report_name": f"Forensic_Report_{job_id}.pdf"}
+    )
+    db.add(log)
+    db.commit()
+    
+    return FileResponse(
+        pdf_path,
+        media_type='application/pdf',
+        filename=f"Forensic_Report_{job_id}_{job.case_number or 'NoCase'}.pdf"
+    )
+    
 @router.post("/jobs/url", response_model=JobStatusResponse)
 async def submit_url_job(
     job_data: URLJobCreate,
