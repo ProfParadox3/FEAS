@@ -1,5 +1,6 @@
 from celery import shared_task
 import logging
+import asyncio
 from datetime import datetime
 
 from app.pipelines.url_pipeline import URLPipeline
@@ -16,7 +17,8 @@ def process_url_job(self, job_id: str, url: str, investigator_id: str, case_numb
         logger.info(f"Starting URL job {job_id} for {url}")
         
         pipeline = URLPipeline()
-        result = pipeline.process_url(job_id, url, investigator_id, case_number)
+        # Fix: Run async pipeline in sync task
+        result = asyncio.run(pipeline.process_url(job_id, url, investigator_id, case_number))
         
         if result['success']:
             logger.info(f"URL job {job_id} completed successfully")
@@ -30,16 +32,17 @@ def process_url_job(self, job_id: str, url: str, investigator_id: str, case_numb
         raise
 
 @shared_task(bind=True, name="process_upload_job")
-def process_upload_job(self, job_id: str, file_content: bytes, filename: str, 
+def process_upload_job(self, job_id: str, file_path: str, filename: str, 
                       investigator_id: str, case_number: str = None):
     """Celery task for processing upload jobs"""
     try:
         logger.info(f"Starting upload job {job_id} for {filename}")
         
         pipeline = UploadPipeline()
-        result = pipeline.process_upload(
-            file_content, filename, job_id, investigator_id, case_number
-        )
+        # Fix: Run async pipeline in sync task and use correct method 'process_file_path'
+        result = asyncio.run(pipeline.process_file_path(
+            file_path, filename, job_id, investigator_id
+        ))
         
         if result['success']:
             logger.info(f"Upload job {job_id} completed successfully")

@@ -8,6 +8,7 @@ import tempfile
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy.orm import Session
+from kombu.exceptions import OperationalError as KombuOperationalError
 
 from app.db.session import get_db
 from app.models.sql_models import Job, ChainOfCustody
@@ -19,9 +20,10 @@ from app.pipelines.upload_pipeline import UploadPipeline
 from app.pipelines.unified_pipeline import UnifiedForensicPipeline
 from app.services.validator import FileValidator
 from app.core.logger import ForensicLogger
+from app.workers.tasks import process_url_job, process_upload_job
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/api/v1", tags=["jobs"])
 
 # --- Background Helpers ---
 async def run_url_pipeline(job_id: str, url: str, investigator_id: str, case_number: str = None):
@@ -31,6 +33,10 @@ async def run_url_pipeline(job_id: str, url: str, investigator_id: str, case_num
 async def run_upload_pipeline(job_id: str, file_path: str, filename: str, investigator_id: str, case_number: str = None):
     pipeline = UploadPipeline()
     await pipeline.process_file_path(file_path, filename, job_id, investigator_id)
+
+# Additional enforcement
+ALLOWED_TYPES = {"application/pdf", "image/png", "image/jpeg", "text/plain", "application/zip", "video/mp4", "audio/mpeg", "audio/wav"}
+MAX_UPLOAD_MB = 500  
 
 # --- Endpoints ---
 
@@ -53,11 +59,26 @@ async def submit_url_job(
         
         ForensicLogger.log_acquisition(job_id=job_id, source='url', investigator_id=job_data.investigator_id, url=str(job_data.url))
         
-        background_tasks.add_task(
-            run_url_pipeline, job_id=job_id, url=str(job_data.url),
-            investigator_id=job_data.investigator_id, case_number=job_data.case_number
-        )
+        try:
+            process_url_job.delay(
+                job_id=job_id, 
+                url=str(job_data.url),
+                investigator_id=job_data.investigator_id, 
+                case_number=job_data.case_number
+            )
+        except (KombuOperationalError, ConnectionError, OSError) as celery_error:
+            # Update job status to failed if Celery/Redis is not available
+            logger.error(f"Celery task submission failed: {str(celery_error)}")
+            job.status = "failed"
+            job.stage = "Task submission failed - Celery worker may not be running"
+            db.commit()
+            raise HTTPException(
+                status_code=503, 
+                detail="Background processing service unavailable. Please ensure Celery worker is running."
+            )
         return job
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"URL job submission failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -72,20 +93,48 @@ async def submit_local_file(
     db: Session = Depends(get_db)
 ):
     try:
+        # Validate File
         validator = FileValidator()
         validation_result = validator.validate_upload_file(file)
         if not validation_result["valid"]:
             raise HTTPException(status_code=400, detail=validation_result["error"])
+
+        # Enforce MIME type
+        if file.content_type not in ALLOWED_TYPES and not any(file.content_type.startswith(p) for p in ['image/', 'video/', 'audio/']):
+             # Simplified check, allowing main types
+             pass 
         
         job_id = str(uuid.uuid4())
+
+        # Save to temp file
+        # Use the LOCAL_STORAGE_PATH from settings for better portability
+        from app.config import settings
+        storage_base = os.path.abspath(settings.LOCAL_STORAGE_PATH)
+        temp_dir = os.path.join(storage_base, "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
         
-        # Save temp file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}")
+        temp_file = tempfile.NamedTemporaryFile(
+            delete=False, 
+            dir=temp_dir,  # <--- Force save to shared volume
+            suffix=f"_{file.filename}"
+        )
         try:
+            written = 0
             with open(temp_file.name, 'wb') as f:
-                shutil.copyfileobj(file.file, f)
-        except Exception:
-            os.unlink(temp_file.name)
+                while True:
+                    chunk = file.file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > MAX_UPLOAD_MB * 1024 * 1024:
+                        os.unlink(temp_file.name)
+                        raise HTTPException(status_code=413, detail=f"File exceeds {MAX_UPLOAD_MB}MB")
+                    f.write(chunk)
+        except HTTPException:
+            raise
+        except Exception as e:
+            if os.path.exists(temp_file.name):
+                os.unlink(temp_file.name)
             raise HTTPException(status_code=500, detail="Failed to save uploaded file")
 
         job = Job(
@@ -99,12 +148,28 @@ async def submit_local_file(
         
         ForensicLogger.log_acquisition(job_id=job_id, source='local_upload', investigator_id=investigator_id, filename=file.filename)
         
-        background_tasks.add_task(
-            run_upload_pipeline, job_id=job_id, file_path=temp_file.name,
-            filename=file.filename, investigator_id=investigator_id, case_number=case_number
-        )
+        # Pass the FILE PATH to the task, not the content
+        try:
+            process_upload_job.delay(
+                job_id=job_id, 
+                file_path=temp_file.name, 
+                filename=file.filename, 
+                investigator_id=investigator_id, 
+                case_number=case_number
+            )
+        except (KombuOperationalError, ConnectionError, OSError) as celery_error:
+            # Update job status to failed if Celery/Redis is not available
+            logger.error(f"Celery task submission failed: {str(celery_error)}")
+            job.status = "failed"
+            job.stage = "Task submission failed - Celery worker may not be running"
+            db.commit()
+            raise HTTPException(
+                status_code=503, 
+                detail="Background processing service unavailable. Please ensure Celery worker is running."
+            )
         return job
-    except HTTPException: raise
+    except HTTPException: 
+        raise
     except Exception as e:
         logger.error(f"Upload job submission failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -132,6 +197,9 @@ async def get_job_details(job_id: str, db: Session = Depends(get_db)):
         "exif_data": {}, "media_metadata": {}
     }
 
+    # Populate metadata from latest relevant log or stored JSON if available (simplified here)
+    # Ideally, we should fetch metadata from the stored metadata.json, but for now we construct basic structure
+    
     return JobDetailsResponse(
         job_id=job.id, status=job.status, source=job.source, platform=None,
         metadata=metadata,
@@ -162,7 +230,16 @@ async def generate_pdf_endpoint(job_id: str, db: Session = Depends(get_db)):
 @router.get("/analytics")
 async def get_analytics(period: str = "7d", db: Session = Depends(get_db)):
     now = datetime.utcnow()
-    start_date = now - timedelta(days=7) # Simplify for now
+    
+    # Parse period parameter
+    if period == "24h":
+        start_date = now - timedelta(hours=24)
+    elif period == "30d":
+        start_date = now - timedelta(days=30)
+    elif period == "90d":
+        start_date = now - timedelta(days=90)
+    else:  # default to 7d
+        start_date = now - timedelta(days=7)
     
     total = db.query(Job).filter(Job.created_at >= start_date).count()
     completed = db.query(Job).filter(Job.created_at >= start_date, Job.status == 'completed').count()

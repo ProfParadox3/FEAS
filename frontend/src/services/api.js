@@ -11,6 +11,22 @@ const api = axios.create({
   timeout: 30000,
 });
 
+// Add auth token to requests if available
+api.interceptors.request.use((config) => {
+  const authData = localStorage.getItem('auth-storage');
+  if (authData) {
+    try {
+      const { state } = JSON.parse(authData);
+      if (state?.token) {
+        config.headers.Authorization = `Bearer ${state.token}`;
+      }
+    } catch (e) {
+      console.error('Error parsing auth token:', e);
+    }
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
@@ -21,6 +37,28 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const authAPI = {
+  login: (email, password) => {
+    const formData = new FormData();
+    formData.append('username', email);
+    formData.append('password', password);
+    return api.post('/auth/login', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  
+  register: (data) => api.post('/auth/register', data),
+  
+  getCurrentUser: () => api.get('/auth/me'),
+  
+  logout: () => api.post('/auth/logout'),
+};
+
+export const profileAPI = {
+  getProfile: () => api.get('/profile/'),
+  updateProfile: (data) => api.patch('/profile/', data),
+};
 
 export const forensicAPI = {
   submitURLJob: (data) => api.post('/jobs/url', data),

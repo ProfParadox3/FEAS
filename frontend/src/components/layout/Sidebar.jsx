@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { NavLink } from 'react-router-dom';
+import { useQuery } from 'react-query';
 import { 
   FaHome, 
   FaUpload, 
@@ -12,8 +13,10 @@ import {
   FaHistory,
   FaChartLine,
   FaQuestionCircle,
+  FaBook,
   FaTimes
 } from 'react-icons/fa';
+import { forensicAPI } from '../../services/api';
 
 const SidebarContainer = styled.aside`
   width: 250px;
@@ -162,7 +165,17 @@ const Version = styled.div`
   font-weight: 600;
 `;
 
+const StatusIndicator = styled.span`
+  color: ${({ status }) => status === 'ok' ? '#10b981' : '#ef4444'};
+`;
+
 const Sidebar = ({ isOpen, toggleSidebar }) => {
+  // Fetch real-time stats for sidebar footer
+  const { data: stats } = useQuery('sidebarStats', () => forensicAPI.getAnalytics('7d'), {
+    refetchInterval: 30000,
+    placeholderData: { pending_jobs: 0, total_jobs: 0 }
+  });
+
   const navItems = [
     {
       section: 'Main',
@@ -170,7 +183,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { path: '/dashboard', icon: <FaHome />, text: 'Dashboard' },
         { path: '/submit', icon: <FaUpload />, text: 'Acquire Evidence', badge: 'NEW' },
         { path: '/monitor', icon: <FaListAlt />, text: 'Job Monitor' },
-        { path: '/evidence', icon: <FaSearch />, text: 'Evidence Browser' },
+        { path: '/database', icon: <FaSearch />, text: 'Evidence Browser' },
       ]
     },
     {
@@ -178,7 +191,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       items: [
         { path: '/analytics', icon: <FaChartLine />, text: 'Analytics' },
         { path: '/chain-of-custody', icon: <FaHistory />, text: 'Chain of Custody' },
-        { path: '/database', icon: <FaDatabase />, text: 'Evidence Database' },
       ]
     },
     {
@@ -186,10 +198,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       items: [
         { path: '/settings', icon: <FaCog />, text: 'Settings' },
         { path: '/security', icon: <FaShieldAlt />, text: 'Security' },
-        { path: '/help', icon: <FaQuestionCircle />, text: 'Help & Docs' },
+        { path: '/help', icon: <FaQuestionCircle />, text: 'Help' },
+        { path: '/docs', icon: <FaBook />, text: 'Documentation' },
       ]
     }
   ];
+
+  const activeJobs = stats?.pending_jobs || 0;
+  const totalJobs = stats?.total_jobs || 0;
 
   return (
     <SidebarContainer isOpen={isOpen}>
@@ -221,9 +237,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       
       <SidebarFooter>
         <SystemInfo>
-          <div>System: OPERATIONAL</div>
-          <div>Jobs: 12 Active</div>
-          <div>Storage: 78% Used</div>
+          <div>System: <StatusIndicator status="ok">OPERATIONAL</StatusIndicator></div>
+          <div>Active Jobs: {activeJobs}</div>
+          <div>Total Jobs: {totalJobs}</div>
           <Version>v1.0.0 | FORENSIC OS</Version>
         </SystemInfo>
       </SidebarFooter>

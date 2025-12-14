@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     S3_SECURE: bool = True
 
     # --- Redis / Celery Settings ---
-    REDIS_HOST: str = "localhost"
+    REDIS_HOST: str = "127.0.0.1"
     REDIS_PORT: str = "6379"
     CELERY_BROKER_URL: Optional[str] = None
     CELERY_RESULT_BACKEND: Optional[str] = None
@@ -84,6 +84,15 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 60
     LOG_LEVEL: str = "INFO"
     CHAIN_OF_CUSTODY_LOG_PATH: str = "./chain_of_custody.log"
+    
+    # --- Default Admin Credentials ---
+    # SECURITY WARNING: These are development defaults only!
+    # In production, set these via environment variables:
+    #   DEFAULT_ADMIN_EMAIL=your-secure-email@domain.com
+    #   DEFAULT_ADMIN_PASSWORD=<secure-random-password>
+    # The admin user is only created if no admin exists in the database.
+    DEFAULT_ADMIN_EMAIL: str = "admin@feas.local"
+    DEFAULT_ADMIN_PASSWORD: str = "admin123"
 
     model_config = {
         "env_file": ".env",

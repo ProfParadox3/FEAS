@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaSearch, FaBell, FaUserCircle } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { FaSearch, FaBell, FaUserCircle, FaSignOutAlt, FaUser } from 'react-icons/fa';
 import { useThemeStore } from '../../store/themeStore';
+import { useAuthStore } from '../../store/authStore';
 import ThemeSwitcher from '../common/ThemeSwitcher';
 
 const HeaderContainer = styled.header`
@@ -57,6 +59,14 @@ const UserProfile = styled.div`
   align-items: center;
   gap: 0.75rem;
   cursor: pointer;
+  position: relative;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.background};
+  }
 `;
 
 const UserInfo = styled.div`
@@ -66,7 +76,88 @@ const UserInfo = styled.div`
   span.role { font-size: 0.75rem; color: ${({ theme }) => theme.textSecondary}; }
 `;
 
+const Dropdown = styled.div`
+  display: ${({ isOpen }) => isOpen ? 'block' : 'none'};
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: ${({ theme }) => theme.cardBackground};
+  border: 1px solid ${({ theme }) => theme.cardBorder};
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  overflow: hidden;
+  z-index: 1000;
+`;
+
+const DropdownItem = styled.div`
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  color: ${({ theme }) => theme.text};
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.background};
+    color: ${({ theme }) => theme.primary};
+  }
+  
+  svg {
+    font-size: 1rem;
+  }
+`;
+
 const Header = () => {
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const handleProfileClick = () => {
+    setDropdownOpen(false);
+    navigate('/profile');
+  };
+
+  const handleLogout = () => {
+    setDropdownOpen(false);
+    logout();
+    navigate('/login');
+  };
+
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
+  };
+
+  const displayName = user?.name || 'Investigator';
+  const displayRole = user?.role || 'Admin Access';
+
   return (
     <HeaderContainer>
       <SearchBar>
@@ -79,15 +170,27 @@ const Header = () => {
         
         <IconButton>
           <FaBell />
-          {/* Notification badge removed for cleanliness */}
         </IconButton>
         
-        <UserProfile>
+        <UserProfile ref={dropdownRef} onClick={toggleDropdown}>
           <UserInfo>
-            <span className="name">Investigator</span>
-            <span className="role">Admin Access</span>
+            <span className="name">{displayName}</span>
+            <span className="role">{displayRole}</span>
           </UserInfo>
           <FaUserCircle size={32} color="#3b82f6" />
+          
+          <Dropdown isOpen={dropdownOpen}>
+            <DropdownItem onClick={handleProfileClick}>
+              <FaUser />
+              View Profile
+            </DropdownItem>
+            {isAuthenticated && (
+              <DropdownItem onClick={handleLogout}>
+                <FaSignOutAlt />
+                Logout
+              </DropdownItem>
+            )}
+          </Dropdown>
         </UserProfile>
       </RightSection>
     </HeaderContainer>

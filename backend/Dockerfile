@@ -1,23 +1,25 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    exiftool \
+# [REAL CODE FIX] Install system dependencies required for python-magic and ffmpeg
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
     libmagic1 \
-    libpq-dev \
-    gcc \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy and install deps
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY . .
-
-RUN useradd -m -u 1000 forensic && chown -R forensic:forensic /app
-USER forensic
+# Copy app
+COPY backend /app/backend
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "backend.app.main"]
