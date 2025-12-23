@@ -595,7 +595,7 @@ chmod 777 backend/evidence_storage
 A huge thanks to the team that made this project possible:
 
   * 👨‍💻 **Rana Uzair Ahmad** - [Dynamo2k](https://github.com/Dynamo2k)
-  * 👨‍💻 **Muhammad Usman** - [Prof.Paradox](https://github.com/ProfParadox)
+  * 👨‍💻 **Muhammad Usman** - [Prof.Paradox](https://github.com/ProfParadox3)
   * 👩‍💻 **Hoor ul Ain** - [hurrainjhl](https://github.com/hurrainjhl)
   * 👩‍💻 **Umae Habiba** - [ZUNATIC](https://github.com/ZUNATIC)
 
