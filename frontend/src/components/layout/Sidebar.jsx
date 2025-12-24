@@ -211,7 +211,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     <SidebarContainer isOpen={isOpen}>
       <SidebarHeader>
         <SidebarTitle>
-          FORENSIC<span>OS</span>
+          FEAS<span></span>
         </SidebarTitle>
         <CloseButton onClick={toggleSidebar}>
           <FaTimes />
