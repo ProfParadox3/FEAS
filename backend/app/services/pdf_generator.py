@@ -134,9 +134,9 @@ class PDFReportGenerator:
             fontName='Helvetica-Bold'
         ))
         
-        # Body text style
+        # Body text style (use different name to avoid conflict with default)
         styles.add(ParagraphStyle(
-            'BodyText',
+            'ForensicBodyText',
             parent=styles['Normal'],
             fontSize=10,
             spaceAfter=8,
@@ -322,7 +322,7 @@ class PDFReportGenerator:
                 'the original file will produce a different hash value, indicating potential '
                 'tampering. Verify this hash against the original to confirm evidence integrity.'
             )
-            story.append(Paragraph(notice_text, styles['BodyText']))
+            story.append(Paragraph(notice_text, styles['ForensicBodyText']))
             
             # ==================== CHAIN OF CUSTODY ====================
             story.append(Spacer(1, 25))
@@ -371,7 +371,7 @@ class PDFReportGenerator:
                 custody_table.setStyle(TableStyle(style_commands))
                 story.append(custody_table)
             else:
-                story.append(Paragraph("<i>No chain of custody entries recorded.</i>", styles['BodyText']))
+                story.append(Paragraph("<i>No chain of custody entries recorded.</i>", styles['ForensicBodyText']))
             
             # ==================== METADATA SECTION ====================
             if job_details.metadata.exif_data:
@@ -400,7 +400,7 @@ class PDFReportGenerator:
                 'has been maintained throughout the acquisition process, and all digital fingerprints have '
                 'been recorded for integrity verification purposes.'
             )
-            story.append(Paragraph(cert_text, styles['BodyText']))
+            story.append(Paragraph(cert_text, styles['ForensicBodyText']))
             
             story.append(Spacer(1, 20))
             
@@ -563,7 +563,7 @@ class PDFReportGenerator:
                     'without further investigation.'
                 )
             
-            story.append(Paragraph(result_text, styles['BodyText']))
+            story.append(Paragraph(result_text, styles['ForensicBodyText']))
             
             # Build PDF
             doc.build(story, onFirstPage=PDFReportGenerator.create_header_footer,

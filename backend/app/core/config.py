@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     REDIS_PORT: str = "6379"
     CELERY_BROKER_URL: Optional[str] = None
     CELERY_RESULT_BACKEND: Optional[str] = None
+    # Set USE_CELERY=false to use FastAPI BackgroundTasks instead of Celery
+    # Useful for development without Redis/Celery setup
+    USE_CELERY: bool = True
 
     @validator("CELERY_BROKER_URL", pre=True, always=True)
     def assemble_celery_broker(cls, v: Optional[str], values: dict) -> str:

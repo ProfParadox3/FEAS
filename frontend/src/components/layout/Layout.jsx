@@ -47,32 +47,6 @@ const GridPattern = styled.div`
   z-index: 0;
 `;
 
-const Scanline = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    ${({ theme }) => theme.primary},
-    transparent
-  );
-  animation: scanline 3s linear infinite;
-  z-index: 9999;
-  pointer-events: none;
-  
-  @keyframes scanline {
-    0% {
-      transform: translateY(-100%);
-    }
-    100% {
-      transform: translateY(100vh);
-    }
-  }
-`;
-
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
@@ -83,7 +57,6 @@ const Layout = ({ children }) => {
   return (
     <LayoutContainer>
       <GridPattern />
-      <Scanline />
       
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
       

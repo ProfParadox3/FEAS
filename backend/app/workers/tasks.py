@@ -17,8 +17,8 @@ def process_url_job(self, job_id: str, url: str, investigator_id: str, case_numb
         logger.info(f"Starting URL job {job_id} for {url}")
         
         pipeline = URLPipeline()
-        # Fix: Run async pipeline in sync task
-        result = asyncio.run(pipeline.process_url(job_id, url, investigator_id, case_number))
+        # Run async pipeline in sync task (url, job_id, investigator_id, case_number)
+        result = asyncio.run(pipeline.process_url(url, job_id, investigator_id, case_number))
         
         if result['success']:
             logger.info(f"URL job {job_id} completed successfully")

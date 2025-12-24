@@ -445,6 +445,11 @@ DATABASE_URL=postgresql://forensic:password@localhost:5432/forensic_db
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
+# Celery Configuration
+# Set USE_CELERY=false to use FastAPI BackgroundTasks instead of Celery
+# Useful for simple development setups without Redis/Celery
+USE_CELERY=true
+
 # Storage
 STORAGE_TYPE=local  # or 's3'
 LOCAL_STORAGE_PATH=./evidence_storage
@@ -469,8 +474,10 @@ CHAIN_OF_CUSTODY_LOG_PATH=./chain_of_custody.log
 RATE_LIMIT_PER_MINUTE=60
 
 # Allowed Domains for URL Acquisition
-ALLOWED_URL_DOMAINS=["twitter.com","x.com","youtube.com","youtu.be"]
+ALLOWED_URL_DOMAINS=["twitter.com","x.com","youtube.com","youtu.be","facebook.com","fb.watch","fb.com","instagram.com"]
 ```
+
+**📚 For URL acquisition setup details, see [URL_SETUP.md](URL_SETUP.md)**
 
 ### Frontend Configuration
 
@@ -521,17 +528,27 @@ sudo kill -9 <PID>
 - Check database credentials in `.env`
 - Wait a few seconds for PostgreSQL to fully initialize
 
-#### 4. Celery Worker Not Processing Jobs
-**Error**: Jobs stuck in "pending" status
+#### 4. Celery Worker Not Processing Jobs / Jobs Stuck at 0%
+**Error**: Jobs stuck in "pending" status with 0% progress
 
-**Solution**:
-```bash
-# Check Celery worker logs
-docker-compose logs celery-worker
+**Solutions**:
 
-# Restart Celery services
-docker-compose restart celery-worker celery-beat
-```
+1. **If using Celery mode (`USE_CELERY=true`)**:
+   ```bash
+   # Check Celery worker logs
+   docker-compose logs celery-worker
+   
+   # Restart Celery services
+   docker-compose restart celery-worker celery-beat
+   
+   # Verify Redis is running
+   redis-cli ping  # Should return PONG
+   ```
+
+2. **Switch to BackgroundTasks mode (simpler for development)**:
+   - Set `USE_CELERY=false` in your `.env` file
+   - Restart the backend server
+   - Jobs will process in-process without requiring Redis/Celery
 
 #### 5. Frontend Can't Connect to Backend
 **Error**: `Network Error` or CORS errors in browser console
@@ -598,6 +615,7 @@ A huge thanks to the team that made this project possible:
   * 👨‍💻 **Muhammad Usman** - [Prof.Paradox](https://github.com/ProfParadox3)
   * 👩‍💻 **Hoor ul Ain** - [hurrainjhl](https://github.com/hurrainjhl)
   * 👩‍💻 **Umae Habiba** - [ZUNATIC](https://github.com/ZUNATIC)
+  * 👨‍💻 **Bilal Badar** - Team Member
 
 -----
 

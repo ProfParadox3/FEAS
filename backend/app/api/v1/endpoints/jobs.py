@@ -7,6 +7,7 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 import logging
+import asyncio
 from sqlalchemy.orm import Session
 from kombu.exceptions import OperationalError as KombuOperationalError
 
@@ -20,19 +21,34 @@ from app.pipelines.upload_pipeline import UploadPipeline
 from app.pipelines.unified_pipeline import UnifiedForensicPipeline
 from app.services.validator import FileValidator
 from app.core.logger import ForensicLogger
-from app.workers.tasks import process_url_job, process_upload_job
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["jobs"])
 
-# --- Background Helpers ---
-async def run_url_pipeline(job_id: str, url: str, investigator_id: str, case_number: str = None):
-    pipeline = URLPipeline()
-    await pipeline.process_url(url, job_id, investigator_id, case_number)
+# Conditionally import Celery tasks only when USE_CELERY is enabled
+if settings.USE_CELERY:
+    from app.workers.tasks import process_url_job, process_upload_job
 
-async def run_upload_pipeline(job_id: str, file_path: str, filename: str, investigator_id: str, case_number: str = None):
-    pipeline = UploadPipeline()
-    await pipeline.process_file_path(file_path, filename, job_id, investigator_id)
+# --- Background Helpers for non-Celery mode ---
+# Note: FastAPI BackgroundTasks runs these in a ThreadPoolExecutor, 
+# so asyncio.run() is safe here - each thread gets its own event loop.
+
+def run_url_pipeline_sync(job_id: str, url: str, investigator_id: str, case_number: str = None):
+    """Synchronous wrapper for URL pipeline (runs in background thread)"""
+    try:
+        pipeline = URLPipeline()
+        asyncio.run(pipeline.process_url(url, job_id, investigator_id, case_number))
+    except Exception as e:
+        logger.error(f"URL pipeline failed for job {job_id}: {str(e)}")
+
+def run_upload_pipeline_sync(job_id: str, file_path: str, filename: str, investigator_id: str, case_number: str = None):
+    """Synchronous wrapper for upload pipeline (runs in background thread)"""
+    try:
+        pipeline = UploadPipeline()
+        asyncio.run(pipeline.process_file_path(file_path, filename, job_id, investigator_id))
+    except Exception as e:
+        logger.error(f"Upload pipeline failed for job {job_id}: {str(e)}")
 
 # Additional enforcement
 ALLOWED_TYPES = {"application/pdf", "image/png", "image/jpeg", "text/plain", "application/zip", "video/mp4", "audio/mpeg", "audio/wav"}
@@ -59,22 +75,34 @@ async def submit_url_job(
         
         ForensicLogger.log_acquisition(job_id=job_id, source='url', investigator_id=job_data.investigator_id, url=str(job_data.url))
         
-        try:
-            process_url_job.delay(
-                job_id=job_id, 
-                url=str(job_data.url),
-                investigator_id=job_data.investigator_id, 
-                case_number=job_data.case_number
-            )
-        except (KombuOperationalError, ConnectionError, OSError) as celery_error:
-            # Update job status to failed if Celery/Redis is not available
-            logger.error(f"Celery task submission failed: {str(celery_error)}")
-            job.status = "failed"
-            job.stage = "Task submission failed - Celery worker may not be running"
-            db.commit()
-            raise HTTPException(
-                status_code=503, 
-                detail="Background processing service unavailable. Please ensure Celery worker is running."
+        # Use Celery if enabled, otherwise fall back to FastAPI BackgroundTasks
+        if settings.USE_CELERY:
+            try:
+                process_url_job.delay(
+                    job_id=job_id, 
+                    url=str(job_data.url),
+                    investigator_id=job_data.investigator_id, 
+                    case_number=job_data.case_number
+                )
+            except (KombuOperationalError, ConnectionError, OSError) as celery_error:
+                # Fallback to BackgroundTasks if Celery/Redis is not available
+                logger.warning(f"Celery unavailable, falling back to BackgroundTasks: {str(celery_error)}")
+                background_tasks.add_task(
+                    run_url_pipeline_sync, 
+                    job_id, 
+                    str(job_data.url), 
+                    job_data.investigator_id, 
+                    job_data.case_number
+                )
+        else:
+            # Use FastAPI BackgroundTasks when USE_CELERY is disabled
+            logger.info(f"Processing URL job {job_id} with BackgroundTasks (USE_CELERY=false)")
+            background_tasks.add_task(
+                run_url_pipeline_sync, 
+                job_id, 
+                str(job_data.url), 
+                job_data.investigator_id, 
+                job_data.case_number
             )
         return job
     except HTTPException:
@@ -108,7 +136,6 @@ async def submit_local_file(
 
         # Save to temp file
         # Use the LOCAL_STORAGE_PATH from settings for better portability
-        from app.config import settings
         storage_base = os.path.abspath(settings.LOCAL_STORAGE_PATH)
         temp_dir = os.path.join(storage_base, "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
@@ -148,24 +175,37 @@ async def submit_local_file(
         
         ForensicLogger.log_acquisition(job_id=job_id, source='local_upload', investigator_id=investigator_id, filename=file.filename)
         
-        # Pass the FILE PATH to the task, not the content
-        try:
-            process_upload_job.delay(
-                job_id=job_id, 
-                file_path=temp_file.name, 
-                filename=file.filename, 
-                investigator_id=investigator_id, 
-                case_number=case_number
-            )
-        except (KombuOperationalError, ConnectionError, OSError) as celery_error:
-            # Update job status to failed if Celery/Redis is not available
-            logger.error(f"Celery task submission failed: {str(celery_error)}")
-            job.status = "failed"
-            job.stage = "Task submission failed - Celery worker may not be running"
-            db.commit()
-            raise HTTPException(
-                status_code=503, 
-                detail="Background processing service unavailable. Please ensure Celery worker is running."
+        # Use Celery if enabled, otherwise fall back to FastAPI BackgroundTasks
+        if settings.USE_CELERY:
+            try:
+                process_upload_job.delay(
+                    job_id=job_id, 
+                    file_path=temp_file.name, 
+                    filename=file.filename, 
+                    investigator_id=investigator_id, 
+                    case_number=case_number
+                )
+            except (KombuOperationalError, ConnectionError, OSError) as celery_error:
+                # Fallback to BackgroundTasks if Celery/Redis is not available
+                logger.warning(f"Celery unavailable, falling back to BackgroundTasks: {str(celery_error)}")
+                background_tasks.add_task(
+                    run_upload_pipeline_sync, 
+                    job_id, 
+                    temp_file.name, 
+                    file.filename, 
+                    investigator_id, 
+                    case_number
+                )
+        else:
+            # Use FastAPI BackgroundTasks when USE_CELERY is disabled
+            logger.info(f"Processing upload job {job_id} with BackgroundTasks (USE_CELERY=false)")
+            background_tasks.add_task(
+                run_upload_pipeline_sync, 
+                job_id, 
+                temp_file.name, 
+                file.filename, 
+                investigator_id, 
+                case_number
             )
         return job
     except HTTPException: 

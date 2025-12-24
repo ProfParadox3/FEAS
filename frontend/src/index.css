@@ -25,20 +25,3 @@
     0%, 100% { text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff; }
     50% { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff; }
   }
-  
-  @keyframes scanline {
-    0% { transform: translateY(-100%); }
-    100% { transform: translateY(100vh); }
-  }
-  
-  .scanline {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(to right, transparent, #00ffff, transparent);
-    animation: scanline 2s linear infinite;
-    z-index: 9999;
-    pointer-events: none;
-  }
