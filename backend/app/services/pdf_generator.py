@@ -69,7 +69,7 @@ class PDFReportGenerator:
         canvas_obj.setFillColor(ForensicColors.MUTED)
         canvas_obj.setFont('Helvetica', 8)
         canvas_obj.drawString(inch, 0.35*inch, 
-                            f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
         canvas_obj.drawString(4.25*inch - 30, 0.35*inch, "CONFIDENTIAL")
         canvas_obj.drawRightString(7.5*inch, 0.35*inch, f"Page {doc.page}")
         
@@ -243,7 +243,7 @@ class PDFReportGenerator:
                 ["Job Reference:", job_details.job_id],
                 ["Evidence Source:", f"{source_str} ({platform_str})"],
                 ["Status:", job_details.status.upper() if job_details.status else "UNKNOWN"],
-                ["Report Generated:", datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')],
+                ["Report Generated:", datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')],
             ]
             
             summary_table = Table(summary_data, colWidths=[2*inch, 4.5*inch])

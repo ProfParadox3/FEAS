@@ -142,7 +142,7 @@ class MetadataExtractor:
                 'last_modified': datetime.fromtimestamp(
                     file_path_obj.stat().st_mtime
                 ).isoformat(),
-                'extraction_timestamp': datetime.utcnow().isoformat()
+                'extraction_timestamp': datetime.now().isoformat()
             }
         }
         
