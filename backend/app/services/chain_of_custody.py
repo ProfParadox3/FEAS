@@ -26,7 +26,7 @@ class ChainOfCustodyLogger:
         """Log a chain of custody event"""
         try:
             entry = ChainOfCustodyEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(),
                 event=event,
                 details=details,
                 investigator_id=investigator_id,
@@ -114,7 +114,7 @@ class ChainOfCustodyLogger:
                 "source_type": source_type,
                 "source_info": source_info,
                 "acquisition_method": "automated" if source_type == "url" else "manual_upload",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now().isoformat()
             },
             investigator_id=investigator_id,
             hash_verification=file_hash

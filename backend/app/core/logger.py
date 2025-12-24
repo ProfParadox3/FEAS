@@ -82,7 +82,7 @@ class ForensicLogger:
                 "source": source,
                 "url": url,
                 "filename": filename,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
         )
     
@@ -104,7 +104,7 @@ class ForensicLogger:
             {
                 "algorithm": "SHA-256",
                 "hash": hash_value,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
         )
     
@@ -118,6 +118,6 @@ class ForensicLogger:
                 "original_hash": original_hash,
                 "current_hash": current_hash,
                 "matches": matches,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
-        )
+        )   
