@@ -621,7 +621,7 @@ A huge thanks to the team that made this project possible:
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License..
 
 -----
 
