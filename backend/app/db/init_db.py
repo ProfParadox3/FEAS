@@ -2,9 +2,7 @@
 Database initialization script
 Creates tables and default admin user
 """
-import logging
-from sqlalchemy.orm import Session
-from app.db.base import Base
+
 from app.db.session import engine
 from app.models.sql_models import User, UserProfile
 from app.core.security import get_password_hash
