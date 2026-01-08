@@ -5,7 +5,7 @@ from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 
 from app.db.session import get_db
-
+from app.models.sql_models import Job, ChainOfCustody
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"]) 
 
